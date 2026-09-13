@@ -1,0 +1,19 @@
+# Environment variables & secrets
+.env
+
+# Python virtual environment
+.venv/
+venv/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Vector stores & database caches
+chroma_db/
+*.sqlite3
+
+# OS files
+.DS_Store

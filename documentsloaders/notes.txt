@@ -1,0 +1,76 @@
+# Comprehensive Notes on Large Language Models (LLMs)
+
+---
+
+# Page 1: Foundations, Evolution, and Transformer Architecture
+
+## 1. What is a Large Language Model?
+A Large Language Model (LLM) is a deep neural network—typically containing billions to trillions of parameters—trained on massive corpora of text, code, and multimodal data. At its theoretical core, an LLM models the joint probability of sequences of tokens over a vocabulary V using the chain rule of probability:
+
+P(w_1, w_2, ..., w_T) = ∏ [t=1 to T] P(w_t | w_1, w_2, ..., w_{t-1})
+
+The term "Large" signifies two dimensions:
+* Scale of Parameters (N): Ranging from 1 billion (1B) to over 1 trillion (1T+) parameters.
+* Scale of Data (D): Pre-trained on trillions of tokens from diverse sources (Common Crawl, GitHub, books, scientific papers, Wikipedia).
+
+---
+
+## 2. Evolution: From N-grams to Transformers
+* Statistical Language Models (1990s): N-gram models using Markov assumptions (P(w_t | w_{t-n+1:t-1})); suffered severely from data sparsity and the curse of dimensionality.
+* Recurrent Neural Networks (RNNs & LSTMs, 2010s): Introduced distributed hidden states to model sequential dependencies. Suffered from vanishing/exploding gradients and sequential execution bottlenecks (inability to parallelize training across tokens).
+* Self-Attention & The Transformer (Vaswani et al., 2017): Eliminated recurrence completely. Allowed every token to attend directly to every other token in parallel across the context window.
+* Pre-trained Language Models (PLMs, 2018–2020): BERT (masked language modeling) and GPT-1/2 (autoregressive pre-training).
+* Modern LLM Era (2020–Present): GPT-3/4, Llama series, Mistral, Gemma, Gemini, DeepSeek. Marked by emergent capabilities, instruction tuning, sparse Mixture of Experts (MoE), and reasoning-focused inference scaling.
+
+---
+
+## 3. The Core Engine: Transformer Architecture
+
+### 3.1 Tokenization
+Raw text is parsed into discrete subword units (e.g., Byte-Pair Encoding [BPE], WordPiece, or Unigram). A vocabulary mapping translates each token to an integer index i in {1, ..., |V|}.
+
+### 3.2 Embedding and Positional Encoding
+Tokens are mapped to dense continuous vectors X_0 in R^{T x d_model}. Because self-attention is permutation-invariant (has no intrinsic concept of token order), position information must be explicitly injected:
+* Sinusoidal / Learned Absolute Embeddings: Added directly to input vectors: X = E_token + E_pos.
+* Rotary Position Embedding (RoPE): Rotates query and key projections in complex vector space by an angle proportional to position index m:
+  q_m = R_{Θ, m}^d * W_q * x_m
+  Preserves relative distance decay and facilitates context length extension.
+* ALiBi (Attention with Linear Biases): Adds a static, non-learned distance penalty directly to query-key dot products.
+
+### 3.3 Scaled Dot-Product Attention
+Given input representation X, linear projections compute Query (Q), Key (K), and Value (V) matrices:
+Q = X * W_Q,  K = X * W_K,  V = X * W_V
+
+Attention(Q, K, V) = softmax((Q * K^T) / sqrt(d_k) + M) * V
+
+* sqrt(d_k): Scaling factor that prevents dot products from growing excessively large in high dimensions (which drives softmax gradients toward zero).
+* M: Attention mask. In causal decoders, upper-triangular elements are set to -infinity to prevent tokens from attending to subsequent tokens.
+
+### 3.4 Multi-Head Attention (MHA) Variants
+Instead of a single attention calculation, MHA computes h parallel attention projections:
+MHA(Q, K, V) = Concat(head_1, ..., head_h) * W^O
+
+* Multi-Query Attention (MQA): Shares a single Key and Value head across all Query heads. Drastically reduces the memory footprint of the KV cache during inference.
+* Grouped-Query Attention (GQA): Compromise between MHA and MQA (used in Llama 3). Groups queries (e.g., 8 Query heads share 1 KV head), balancing quality and memory bandwidth.
+
+### 3.5 Feed-Forward Networks & Normalization
+* SwiGLU Activation: Modern LLMs replace standard GeLU/ReLU with Swish Gated Linear Units:
+  SwiGLU(x) = (Swish(x * W) ⊙ (x * V)) * W_2
+* RMSNorm: Replaces standard LayerNorm by computing root-mean-square normalization without mean-centering, cutting compute latency.
+
+---
+
+## 4. Architectural Taxonomy
+
+| Architecture Type | Mechanism | Attention Type | Primary Exemplars | Best Used For |
+| :--- | :--- | :--- | :--- | :--- |
+| Encoder-Only | Bidirectional self-attention | Full matrix (unmasked) | BERT, RoBERTa | Classification, NER, Dense Embeddings |
+| Decoder-Only | Autoregressive generation | Causal masking (lower triangle) | GPT-4, Llama 3, Mistral | Free-form text generation, reasoning |
+| Encoder-Decoder | Cross-attention bridges blocks | Bidirectional encoder + Causal decoder | T5, BART | Translation, abstractive summarization |
+| Mixture of Experts (MoE) | Sparse routing to subset of FFNs | Standard attention + Dynamic routing | Mixtral 8x7B, DeepSeek-V3 | High parameter capacity with low FLOPs/token |
+
+---
+
+# Page 2: Training Pipeline, Scaling Laws, and Alignment
+
+The lifecycle of an LLM involves three primary phases: Pre-training, Supervised Fine-Tuning (SFT), and Preference Alignment.
